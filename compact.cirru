@@ -185,7 +185,7 @@
                 true true
               , false
         |site $ quote
-          def site $ {} (:port 5021) (:title "\"Cumulo") (:icon "\"http://cdn.tiye.me/logo/cumulo.png") (:dev-ui "\"http://localhost:8100/main.css") (:release-ui "\"http://cdn.tiye.me/favored-fonts/main.css") (:cdn-url "\"http://cdn.tiye.me/cumulo-workflow/") (:theme "\"#eeeeff") (:storage-key "\"workflow-storage-calcit") (:storage-file "\"storage.edn")
+          def site $ {} (:port 11025) (:title "\"Paste Sharing") (:icon "\"http://cdn.tiye.me/logo/cumulo.png") (:dev-ui "\"http://localhost:8100/main.css") (:release-ui "\"http://cdn.tiye.me/favored-fonts/main.css") (:cdn-url "\"http://cdn.tiye.me/paste-sharing/") (:theme "\"#eeeeff") (:storage-key "\"paste-sharing") (:storage-file "\"storage.edn")
       :proc $ quote ()
     |app.twig.user $ {}
       :ns $ quote
