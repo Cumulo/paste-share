@@ -1,0 +1,24 @@
+{
+  "dependencies": {
+    "@calcit/procs": "^0.3.16"
+  },
+  "scripts": {
+    "watch-server": "cr --emit-js",
+    "build-server": "target=node entry=./server.js yarn webpack && node js-out/bundle.js",
+    "dev-server": "hot=true target=node entry=./server.js yarn webpack --watch",
+    "compile-server": "cr --emit-js --once",
+    "compile-page": "cr --emit-js --once --init-fn app.client/main! --reload-fn app.client/reload! --emit-path out-page",
+    "watch-page": "cr --emit-js --emit-path out-page/ --init-fn app.client/main! --reload-fn app.client/reload!"
+  },
+  "devDependencies": {
+    "md5": "^2.3.0",
+    "randomcolor": "^0.6.2",
+    "shortid": "^2.2.16",
+    "url-parse": "^1.5.1",
+    "vite": "^2.3.3",
+    "webpack": "^5.37.0",
+    "webpack-cli": "^4.7.0",
+    "ws": "^7.4.5"
+  },
+  "version": "0.0.1"
+}
