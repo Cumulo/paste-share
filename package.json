@@ -11,6 +11,7 @@
     "watch-page": "cr --emit-js --emit-path out-page/ --init-fn app.client/main! --reload-fn app.client/reload!"
   },
   "devDependencies": {
+    "dayjs": "^1.10.4",
     "feather-icons": "^4.28.0",
     "md5": "^2.3.0",
     "randomcolor": "^0.6.2",

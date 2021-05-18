@@ -140,7 +140,7 @@
         |database $ quote
           def database $ {}
             :sessions $ do session ({})
-            :users $ do user ({})
+            :snippets $ do snippet ({})
         |router $ quote
           def router $ {} (:name nil) (:title nil)
             :data $ {}
@@ -150,12 +150,15 @@
             :router $ do router
               {} (:name :home) (:data nil) (:router nil)
             :messages $ {}
-        |user $ quote
-          def user $ {} (:name nil) (:id nil) (:nickname nil) (:avatar nil) (:password nil)
+        |snippet $ quote
+          def snippet $ {} (:id nil) (:time nil) (:nickname nil) (:content nil) (:desc "\"")
+            :replies $ do reply ([])
+        |reply $ quote
+          def reply $ {} (:id nil) (:nickname nil) (:time nil) (:content "\"")
       :proc $ quote ()
     |app.updater $ {}
       :ns $ quote
-        ns app.updater $ :require ([] app.updater.session :as session) ([] app.updater.router :as router) ([] app.schema :as schema)
+        ns app.updater $ :require ([] app.updater.session :as session) ([] app.updater.router :as router) (app.updater.snippet :as snippet) ([] app.schema :as schema)
           [] respo-message.updater :refer $ [] update-messages
       :defs $ {}
         |updater $ quote
@@ -169,6 +172,8 @@
                   :session/disconnect session/disconnect
                   :session/remove-message session/remove-message
                   :session/nickname session/nickname
+                  :snippet/create snippet/create-snippet
+                  :snippet/remove snippet/remove-snippet
                   :router/change router/change
               f db op-data sid op-id op-time
       :proc $ quote ()
@@ -274,7 +279,7 @@
           [] app.config :as config
       :defs $ {}
         |comp-navigation $ quote
-          defcomp comp-navigation (logged-in? count-members)
+          defcomp comp-navigation (nickname count-members)
             div
               {} $ :style
                 merge ui/row-center $ {} (:height "\"40px") (:justify-content :space-between) (:padding "\"0 16px") (:font-size 16)
@@ -291,7 +296,7 @@
                   :style $ {} (:cursor "\"pointer")
                   :on-click $ fn (e d!)
                     d! :router/change $ {} (:name :profile)
-                <> $ if logged-in? "\"Me" "\"Guest"
+                <> nickname
                 =< 8 nil
                 <> count-members
       :proc $ quote ()
@@ -312,6 +317,7 @@
           [] app.schema :as schema
           [] app.config :as config
           respo.util.format :refer $ hsl
+          app.comp.home :refer $ comp-home
       :defs $ {}
         |comp-container $ quote
           defcomp comp-container (states store)
@@ -327,17 +333,13 @@
               if (nil? store) (comp-offline)
                 div
                   {} $ :style (merge ui/global ui/fullscreen ui/column)
-                  comp-navigation (:logged-in? store) (:count store)
+                  comp-navigation (:nickname session) (:count store)
                   div
                     {} $ :style
                       merge ui/expand ui/row $ {} (:padding "\"0 80px")
                     case-default (:name router)
-                      <> $ str "\"Unknown page:" router
-                      :home $ div
-                        {} $ :style
-                          {} $ :padding "\"8px"
-                        =< 8 nil
-                        <> "\"demo page"
+                      <> $ str "\"Unknown page: " router
+                      :home $ comp-home (>> states :home) (:snippets store)
                       :profile $ comp-profile (>> states :profile) (:nickname session)
                   comp-status-color $ :color store
                   when dev? $ comp-inspect "\"Store" store
@@ -372,15 +374,128 @@
                   size 24
                 {} (:width size) (:height size) (:position :absolute) (:bottom 60) (:left 8) (:background-color color) (:border-radius "\"50%") (:opacity 0.6) (:pointer-events :none)
       :proc $ quote ()
+    |app.comp.home $ {}
+      :ns $ quote
+        ns app.comp.home $ :require
+          respo.util.format :refer $ hsl
+          app.schema :as schema
+          respo-ui.core :as ui
+          respo.core :refer $ defcomp list-> <> >> span div button textarea a
+          respo.comp.space :refer $ =<
+          app.config :as config
+          feather.core :refer $ comp-icon
+          respo-alerts.core :refer $ use-prompt
+          "\"dayjs" :as dayjs
+          feather.core :refer $ comp-icon
+      :defs $ {}
+        |comp-home $ quote
+          defcomp comp-home (states snippets)
+            let
+                cursor $ :cursor states
+                state $ either (:data states)
+                  {} $ :text "\""
+              div
+                {} $ :style
+                  merge ui/column $ {} (:padding "\"8px 0") (:width "\"100%")
+                div
+                  {} $ :style ui/row
+                  textarea $ {}
+                    :style $ merge ui/expand ui/textarea
+                    :placeholder "\"Paste a link..."
+                    :value $ :text state
+                    :on-input $ fn (e d!)
+                      d! cursor $ assoc state :text (:value e)
+                  =< 8 nil
+                  div ({})
+                    button $ {} (:style ui/button) (:inner-text "\"Send")
+                      :on-click $ fn (e d!)
+                        when
+                          not $ blank? (:text state)
+                          d! :snippet/create $ trim (:text state)
+                          d! cursor $ assoc state :text "\""
+                =< nil 8
+                div
+                  {} $ :style
+                    merge ui/expand $ {} (:padding-bottom 200)
+                  , &
+                    -> snippets (vals) (set->list)
+                      sort $ fn (a b)
+                        - (:time b) (:time a)
+                      map $ fn (snippet) (comp-snippet snippet)
+                    if (empty? snippets)
+                      div
+                        {} $ :style ui/center
+                        <> "\"All Cleared." $ {}
+                          :color $ hsl 0 0 70
+                          :font-family ui/font-fancy
+                          :padding "\"16px 0"
+                          :font-size 16
+                          :font-style :italic
+        |comp-snippet $ quote
+          defcomp comp-snippet (snippet)
+            div
+              {} $ :style
+                {}
+                  :border $ str "\"1px solid " (hsl 0 0 90)
+                  :padding "\"2px 8px"
+                  :margin "\"8px 0"
+                  :border-radius "\"8px"
+              div
+                {} $ :style ui/row-parted
+                let
+                    content $ either (:content snippet) "\"..."
+                  if
+                    and
+                      or (starts-with? content "\"http://") (starts-with? content "\"https://")
+                      not $ includes? (trim content) "\" "
+                    a $ {}
+                      :href $ trim content
+                      :inner-text content
+                      :target "\"_blank"
+                    <> content
+                comp-icon :x
+                  {}
+                    :color $ hsl 0 80 60
+                    :font-size 14
+                    :cursor :pointer
+                  fn (e d!)
+                    d! :snippet/remove $ :id snippet
+              div ({})
+                <> $ str "\"@"
+                  either (:nickname snippet) "\"??"
+                =< 8 nil
+                <>
+                  -> (:time snippet) (dayjs/@) (.format "\"HH:mm")
+                  {} $ :color (hsl 0 0 90)
+      :proc $ quote ()
+      :configs $ {}
+    |app.updater.snippet $ {}
+      :ns $ quote
+        ns app.updater.snippet $ :require (app.schema :as schema)
+      :defs $ {}
+        |create-snippet $ quote
+          defn create-snippet (db op-data sid op-id op-time)
+            let
+                session $ get-in db ([] :sessions sid)
+              assoc-in db ([] :snippets op-id)
+                merge schema/snippet $ {} (:id op-id) (:time op-time) (:content op-data)
+                  :nickname $ get session :nickname
+        |remove-snippet $ quote
+          defn remove-snippet (db op-data sid op-id op-time)
+            let
+                session $ get-in db ([] :sessions sid)
+              update db :snippets $ fn (s) (dissoc s op-data)
+      :proc $ quote ()
+      :configs $ {}
     |app.comp.profile $ {}
       :ns $ quote
         ns app.comp.profile $ :require
-          [] respo.util.format :refer $ [] hsl
-          [] app.schema :as schema
-          [] respo-ui.core :as ui
-          [] respo.core :refer $ [] defcomp list-> <> >> span div button
-          [] respo.comp.space :refer $ [] =<
-          [] app.config :as config
+          respo.util.format :refer $ hsl
+          app.schema :as schema
+          respo-ui.core :as ui
+          respo.core :refer $ defcomp list-> <> >> span div button
+          respo.comp.space :refer $ =<
+          app.config :as config
           feather.core :refer $ comp-icon
           respo-alerts.core :refer $ use-prompt
       :defs $ {}
@@ -388,18 +503,21 @@
           defcomp comp-profile (states nickname)
             let
                 name-plugin $ use-prompt (>> states :name)
-                  {} $ :title "\"Set name"
+                  {} (:text "\"Set name") (:initial nickname)
               div
                 {} $ :style
                   merge ui/flex $ {} (:padding 16)
                 div
                   {} $ :style ({})
-                  <> (str "\"Hello! ")
+                  <> (str "\"Hello!")
                     {} (:font-family ui/font-fancy) (:font-size 32) (:font-weight 100)
+                  =< 16 nil
                   <> nickname $ {} (:font-weight "\"bold") (:font-size 24)
+                  =< 8 nil
                   comp-icon :edit
                     {} (:font-size 14)
                       :color $ hsl 0 0 80
+                      :cursor :pointer
                     fn (e d!)
                         :show name-plugin
                         , d! $ fn (text)
@@ -428,6 +546,7 @@
                     :profile $ {}
                 :count $ count (:sessions db)
                 :color $ color/randomColor
+                :snippets $ :snippets db
       :proc $ quote ()
     |app.server $ {}
       :ns $ quote
@@ -454,7 +573,7 @@
               cond
                   = op :effect/persist
                   persist-db!
-                true $ reset! *reel (reel-reducer @*reel updater op op-data sid op-id op-time)
+                true $ reset! *reel (reel-reducer @*reel @*proxied-updater op op-data sid op-id op-time)
         |main! $ quote
           defn main! ()
             println "\"Running mode:" $ if config/dev? "\"dev" "\"release"
@@ -502,6 +621,8 @@
             js/process.exit
         |storage-file $ quote
           def storage-file $ path/join js/__dirname (:storage-file config/site)
+        |*proxied-updater $ quote
+          defatom *proxied-updater updater $ ; "\"wss event handlers has closures"
         |*reel $ quote
           defatom *reel $ merge reel-schema
             {} (:base @*initial-db) (:db @*initial-db)
@@ -518,7 +639,7 @@
             write-mildly! storage-path file-content
             write-mildly! backup-path file-content
         |reload! $ quote
-          defn reload! () (println "\"Code updated9.") (clear-twig-caches!)
+          defn reload! () (println "\"Code updated9.") (clear-twig-caches!) (reset! *proxied-updater updater)
             reset! *reel $ refresh-reel @*reel @*initial-db updater
             js/clearTimeout @*loop-trigger
             render-loop! *loop-trigger
