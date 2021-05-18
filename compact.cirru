@@ -210,7 +210,7 @@
           [] ws-edn.client :refer $ [] ws-connect! ws-send!
           [] recollect.patch :refer $ [] patch-twig
           [] cumulo-util.core :refer $ [] on-page-touch
-          "\"url-parse" :as url-parse
+          "\"url-parse" :default url-parse
       :defs $ {}
         |ssr? $ quote
           def ssr? $ some? (.querySelector js/document "\"meta.respo-ssr")
@@ -242,7 +242,7 @@
               :cursor $ []
         |connect! $ quote
           defn connect! () $ let
-              ; url-obj $ url-parse/@ js/location.href true
+              url-obj $ url-parse js/location.href true
               host $ or (; -> url-obj .-query .-host) js/location.hostname
               port $ or (; -> url-obj .-query .-port) (:port config/site)
             ws-connect! (str "\"ws://" host "\":" port)
@@ -385,7 +385,7 @@
           app.config :as config
           feather.core :refer $ comp-icon
           respo-alerts.core :refer $ use-prompt
-          "\"dayjs" :as dayjs
+          "\"dayjs" :default dayjs
           feather.core :refer $ comp-icon
       :defs $ {}
         |comp-home $ quote
@@ -465,7 +465,7 @@
                   either (:nickname snippet) "\"??"
                 =< 8 nil
                 <>
-                  -> (:time snippet) (dayjs/@) (.format "\"HH:mm")
+                  -> (:time snippet) (dayjs) (.format "\"HH:mm")
                   {} $ :color (hsl 0 0 90)
       :proc $ quote ()
       :configs $ {}

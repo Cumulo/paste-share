@@ -28,7 +28,7 @@ jobs:
         && git clone https://github.com/Cumulo/cumulo-util.calcit.git
         && git clone https://github.com/Cumulo/cumulo-reel.calcit.git
         && git clone https://github.com/mvc-works/ws-edn.calcit.git
-        && git clone https://github.com/Respo/respo-feather.calcit.git
+        && git clone https://github.com/Respo/respo-feather.calcit.git --branch 0.2.2
         && git clone https://github.com/Respo/alerts.calcit.git
 
     - name: "compiles to js"
