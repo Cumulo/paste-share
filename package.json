@@ -8,6 +8,8 @@
     "dev-server": "hot=true target=node entry=./server.js yarn webpack --watch",
     "compile-server": "cr --emit-js --once",
     "compile-page": "cr --emit-js --once --init-fn app.client/main! --reload-fn app.client/reload! --emit-path out-page",
+    "release-page": "vite build --base=./",
+    "release-server": "target=node entry=./server.js yarn webpack",
     "watch-page": "cr --emit-js --emit-path out-page/ --init-fn app.client/main! --reload-fn app.client/reload!"
   },
   "devDependencies": {

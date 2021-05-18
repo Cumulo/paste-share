@@ -210,7 +210,7 @@
           [] ws-edn.client :refer $ [] ws-connect! ws-send!
           [] recollect.patch :refer $ [] patch-twig
           [] cumulo-util.core :refer $ [] on-page-touch
-          [] "\"url-parse" :as url-parse
+          "\"url-parse" :as url-parse
       :defs $ {}
         |ssr? $ quote
           def ssr? $ some? (.querySelector js/document "\"meta.respo-ssr")
@@ -242,9 +242,9 @@
               :cursor $ []
         |connect! $ quote
           defn connect! () $ let
-              url-obj $ url-parse/@ js/location.href true
-              host $ or (-> url-obj .-query .-host) js/location.hostname
-              port $ or (-> url-obj .-query .-port) (:port config/site)
+              ; url-obj $ url-parse/@ js/location.href true
+              host $ or (; -> url-obj .-query .-host) js/location.hostname
+              port $ or (; -> url-obj .-query .-port) (:port config/site)
             ws-connect! (str "\"ws://" host "\":" port)
               {}
                 :on-open $ fn (event) (js/console.info "\"connection established")
