@@ -11,10 +11,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v1
-    - name: wget
-      run: mkdir ci-bin/ && wget -O ci-bin/cr http://repo.calcit-lang.org/binaries/linux/cr
-    - name: "permission"
-      run: chmod +x ci-bin/cr
+
+    - name: ACTIONS_ALLOW_UNSECURE_COMMANDS
+      id: ACTIONS_ALLOW_UNSECURE_COMMANDS
+      run: echo 'ACTIONS_ALLOW_UNSECURE_COMMANDS=true' >> $GITHUB_ENV
+
+    - name: add cr
+      run: |
+        mkdir -p $GITHUB_WORKSPACE/bin
+        wget -O $GITHUB_WORKSPACE/bin/cr http://repo.calcit-lang.org/binaries/linux/cr
+        chmod +x $GITHUB_WORKSPACE/bin/cr
+        echo "::add-path::$GITHUB_WORKSPACE/bin"
 
     - name: "prepare modules"
       run: >
@@ -28,18 +35,10 @@ jobs:
         && git clone https://github.com/Cumulo/cumulo-util.calcit.git
         && git clone https://github.com/Cumulo/cumulo-reel.calcit.git
         && git clone https://github.com/mvc-works/ws-edn.calcit.git
-        && git clone https://github.com/Respo/respo-feather.calcit.git --branch 0.2.2
+        && git clone https://github.com/Respo/respo-feather.calcit.git
         && git clone https://github.com/Respo/alerts.calcit.git
 
-    - name: "compiles to js"
-      run: >
-        ./ci-bin/cr --emit-js --once --emit-path out-page/
-        && ./ci-bin/cr --emit-js --once --init-fn cumulo-reel.server/main! --reload-fn cumulo-reel.server/reload!
-
-    - run: ./ci-bin/cr --emit-js --once
-    - run: ./ci-bin/cr --emit-js --once --init-fn app.client/main! --reload-fn app.client/reload! --emit-path out-page
-
-    - run: yarn && yarn release-page && yarn release-server
+    - run: yarn && yarn compile-server && yarn compile-page && yarn release-page && yarn release-server
 
     - run: mkdir -p dist-server && mv js-out/bundle.js dist-server && cp package.json dist-server/
       name: Copy server scripts

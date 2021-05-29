@@ -418,7 +418,7 @@
                   {} $ :style
                     merge ui/expand $ {} (:padding-bottom 200)
                   , &
-                    -> snippets (vals) (set->list)
+                    -> snippets (vals) (.to-list)
                       sort $ fn (a b)
                         - (:time b) (:time a)
                       map $ fn (snippet) (comp-snippet snippet)
