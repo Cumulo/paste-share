@@ -387,6 +387,7 @@
           respo-alerts.core :refer $ use-prompt
           "\"dayjs" :default dayjs
           feather.core :refer $ comp-icon
+          "\"copy-text-to-clipboard" :default copy!
       :defs $ {}
         |comp-home $ quote
           defcomp comp-home (states snippets)
@@ -421,7 +422,10 @@
                     -> snippets (vals) (.to-list)
                       sort $ fn (a b)
                         - (:time b) (:time a)
-                      map $ fn (snippet) (comp-snippet snippet)
+                      map $ fn (snippet)
+                        comp-snippet
+                          >> states $ :id snippet
+                          , snippet
                     if (empty? snippets)
                       div
                         {} $ :style ui/center
@@ -432,41 +436,73 @@
                           :font-size 16
                           :font-style :italic
         |comp-snippet $ quote
-          defcomp comp-snippet (snippet)
-            div
-              {} $ :style
-                {}
-                  :border $ str "\"1px solid " (hsl 0 0 90)
-                  :padding "\"2px 8px"
-                  :margin "\"8px 0"
-                  :border-radius "\"8px"
+          defcomp comp-snippet (states snippet)
+            let
+                cursor $ :cursor states
+                state $ either (:data states)
+                  {} $ :copied? false
               div
-                {} $ :style ui/row-parted
-                let
-                    content $ either (:content snippet) "\"..."
-                  if
-                    and
-                      or (starts-with? content "\"http://") (starts-with? content "\"https://")
-                      not $ includes? (trim content) "\" "
-                    a $ {}
-                      :href $ trim content
-                      :inner-text content
-                      :target "\"_blank"
-                    <> content
-                comp-icon :x
+                {} $ :style
                   {}
-                    :color $ hsl 0 80 60
-                    :font-size 14
-                    :cursor :pointer
-                  fn (e d!)
-                    d! :snippet/remove $ :id snippet
-              div ({})
-                <> $ str "\"@"
-                  either (:nickname snippet) "\"??"
-                =< 8 nil
-                <>
-                  -> (:time snippet) (dayjs) (.format "\"HH:mm")
-                  {} $ :color (hsl 0 0 90)
+                    :border $ str "\"1px solid " (hsl 0 0 90)
+                    :padding "\"2px 8px"
+                    :margin "\"8px 0"
+                    :border-radius "\"8px"
+                    :position :relative
+                div
+                  {} $ :style ui/row-parted
+                  let
+                      content $ either (:content snippet) "\"..."
+                    div
+                      {} $ :style ui/row-middle
+                      if
+                        and
+                          or (starts-with? content "\"http://") (starts-with? content "\"https://")
+                          not $ includes? (trim content) "\" "
+                        a $ {}
+                          :href $ trim content
+                          :inner-text content
+                          :target "\"_blank"
+                        <> content
+                      =< 8 nil
+                      comp-icon :copy
+                        merge style-icon $ {}
+                          :color $ hsl 200 20 60 0.5
+                        fn (e d!)
+                          copy! $ :content snippet
+                          d! cursor $ assoc state :copied? true
+                          js/setTimeout
+                            fn () $ d! cursor (assoc state :copied? false)
+                            , 2000
+                  comp-icon :x
+                    merge style-icon $ {}
+                      :color $ hsl 0 80 60
+                    fn (e d!)
+                      d! :snippet/remove $ :id snippet
+                div ({})
+                  <> $ str "\"@"
+                    either (:nickname snippet) "\"??"
+                  =< 8 nil
+                  <>
+                    -> (:time snippet) (dayjs) (.format "\"HH:mm")
+                    {} $ :color (hsl 0 0 90)
+                if (:copied? state) template-copied
+        |style-icon $ quote
+          def style-icon $ {}
+            :color $ hsl 200 20 60 0.5
+            :font-size 14
+            :cursor :pointer
+        |template-copied $ quote
+          def template-copied $ div
+            {} $ :style
+              merge ui/center $ {} (:position :absolute) (:top 10) (:left 10)
+                :background-color $ hsl 0 0 0 0.6
+                :color :white
+                :padding "\"0 8px"
+                :border-radius "\"2px"
+                :font-size 12
+                :font-family ui/font-fancy
+            <> "\"Copied"
       :proc $ quote ()
       :configs $ {}
     |app.updater.snippet $ {}
