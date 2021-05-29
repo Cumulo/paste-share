@@ -380,14 +380,15 @@
           respo.util.format :refer $ hsl
           app.schema :as schema
           respo-ui.core :as ui
-          respo.core :refer $ defcomp list-> <> >> span div button textarea a
+          respo.core :refer $ defcomp list-> <> >> span div button textarea a defeffect create-element
           respo.comp.space :refer $ =<
           app.config :as config
           feather.core :refer $ comp-icon
-          respo-alerts.core :refer $ use-prompt
+          respo-alerts.core :refer $ use-prompt use-modal
           "\"dayjs" :default dayjs
           feather.core :refer $ comp-icon
           "\"copy-text-to-clipboard" :default copy!
+          "\"qrcode" :as QRCode
       :defs $ {}
         |comp-home $ quote
           defcomp comp-home (states snippets)
@@ -441,6 +442,10 @@
                 cursor $ :cursor states
                 state $ either (:data states)
                   {} $ :copied? false
+                qrcode-plugin $ use-modal (>> states :qrcode)
+                  {} (:title "\"QR Code")
+                    :render $ fn (on-close)
+                      comp-qrcode (:content snippet) on-close
               div
                 {} $ :style
                   {}
@@ -464,7 +469,7 @@
                           :inner-text content
                           :target "\"_blank"
                         <> content
-                      =< 8 nil
+                      =< 16 nil
                       comp-icon :copy
                         merge style-icon $ {}
                           :color $ hsl 200 20 60 0.5
@@ -474,6 +479,13 @@
                           js/setTimeout
                             fn () $ d! cursor (assoc state :copied? false)
                             , 2000
+                      =< 16 nil
+                      comp-icon :camera
+                        merge style-icon $ {}
+                          :color $ hsl 200 20 60 0.5
+                        fn (e d!)
+                            :show qrcode-plugin
+                            , d!
                   comp-icon :x
                     merge style-icon $ {}
                       :color $ hsl 0 80 60
@@ -487,6 +499,7 @@
                     -> (:time snippet) (dayjs) (.format "\"HH:mm")
                     {} $ :color (hsl 0 0 90)
                 if (:copied? state) template-copied
+                :ui qrcode-plugin
         |style-icon $ quote
           def style-icon $ {}
             :color $ hsl 200 20 60 0.5
@@ -503,6 +516,24 @@
                 :font-size 12
                 :font-family ui/font-fancy
             <> "\"Copied"
+        |comp-qrcode $ quote
+          defcomp comp-qrcode (content on-close)
+            [] (effect-code content)
+              div
+                {} $ :style
+                  merge ui/center $ {} (:padding 40)
+                div ({})
+                  <> $ js/JSON.stringify content
+                create-element :canvas $ {}
+        |effect-code $ quote
+          defeffect effect-code (content) (action el)
+            when (= action :mount)
+              let
+                  target $ js/document.querySelector "\"canvas"
+                if (some? target)
+                  QRCode/toCanvas target content $ fn (e ? el2)
+                    if (some? e) (js/console.error e)
+                  js/console.error "\"missing canvas element"
       :proc $ quote ()
       :configs $ {}
     |app.updater.snippet $ {}
