@@ -4,6 +4,163 @@
     :modules $ [] |respo.calcit/ |lilac/ |recollect/ |memof/ |respo-ui.calcit/ |ws-edn.calcit/ |cumulo-util.calcit/ |respo-message.calcit/ |cumulo-reel.calcit/ |respo-feather.calcit/ |alerts.calcit/
     :version nil
   :files $ {}
+    |app.comp.snippet $ {}
+      :ns $ quote
+        ns app.comp.snippet $ :require
+          respo.util.format :refer $ hsl
+          app.schema :as schema
+          respo-ui.core :as ui
+          respo.core :refer $ defcomp list-> <> >> span div button textarea a defeffect create-element
+          respo.comp.space :refer $ =<
+          app.config :as config
+          feather.core :refer $ comp-icon
+          respo-alerts.core :refer $ use-prompt use-modal use-confirm
+          "\"dayjs" :default dayjs
+          feather.core :refer $ comp-icon comp-i
+          "\"copy-text-to-clipboard" :default copy!
+          "\"qrcode" :as QRCode
+      :defs $ {}
+        |comp-qrcode $ quote
+          defcomp comp-qrcode (content on-close)
+            [] (effect-code content)
+              div
+                {} $ :style
+                  merge ui/center $ {} (:padding 40)
+                div ({})
+                  <> $ js/JSON.stringify content
+                create-element :canvas $ {}
+        |comp-snippet $ quote
+          defcomp comp-snippet (states snippet)
+            let
+                cursor $ :cursor states
+                state $ either (:data states)
+                  {} $ :copied? false
+                qrcode-plugin $ use-modal (>> states :qrcode)
+                  {} (:title "\"QR Code")
+                    :render $ fn (on-close)
+                      comp-qrcode (:content snippet) on-close
+                desc-plugin $ use-prompt (>> states :desc)
+                  {} (:title "\"Description") (:multiline? true)
+                    :initial $ :desc snippet
+                delete-plugin $ use-confirm (>> states :remove)
+                  {} $ :text "\"Sure to remove?"
+              div
+                {} $ :style style-snippet
+                div
+                  {} $ :style ui/row-parted
+                  let
+                      content $ either (:content snippet) "\"..."
+                    div
+                      {} $ :style ui/row-middle
+                      if
+                        and
+                          or (starts-with? content "\"http://") (starts-with? content "\"https://")
+                          not $ includes? (trim content) "\" "
+                        a $ {}
+                          :href $ trim content
+                          :inner-text content
+                          :target "\"_blank"
+                        <> content
+                      =< 16 nil
+                      comp-icon :copy
+                        merge style-icon $ {}
+                          :color $ hsl 200 20 60 0.5
+                        fn (e d!)
+                          copy! $ :content snippet
+                          d! cursor $ assoc state :copied? true
+                          js/setTimeout
+                            fn () $ d! cursor (assoc state :copied? false)
+                            , 2000
+                      =< 16 nil
+                      comp-icon :camera
+                        merge style-icon $ {}
+                          :color $ hsl 200 20 60 0.5
+                        fn (e d!)
+                            :show qrcode-plugin
+                            , d!
+                      =< 16 nil
+                      div
+                        {} (:style ui/row-middle)
+                          :on-click $ fn (e d!)
+                            d! :router/change $ {} (:name :snippet)
+                              :id $ :id snippet
+                        comp-icon :message-square style-icon $ fn (e d!) (; "TODO event handling issue")
+                          d! :router/change $ {} (:name :snippet)
+                            :id $ :id snippet
+                        =< 4 0
+                        <> $ .count (:replies snippet)
+                  comp-icon :x
+                    merge style-icon $ {}
+                      :color $ hsl 0 80 60
+                    fn (e d!)
+                        :show delete-plugin
+                        , d! $ fn ()
+                          d! :snippet/remove $ :id snippet
+                div
+                  {} $ :style ui/row-parted
+                  div
+                    {} $ :style ui/row-middle
+                    <> $ &let
+                      desc $ :desc snippet
+                      if
+                        and (some? desc)
+                          not $ .blank? desc
+                        , desc "\"..."
+                    =< 8 nil
+                    comp-icon :edit (merge style-icon)
+                      fn (e d!)
+                          :show desc-plugin
+                          , d! $ fn (value)
+                            when
+                              and (some? value)
+                                not $ .blank? value
+                              d! :snippet/update $ [] (:id snippet)
+                                {} $ :desc value
+                  div ({})
+                    <> $ str "\"by "
+                      either (:nickname snippet) "\"??"
+                    =< 8 nil
+                    <>
+                      -> (:time snippet) (dayjs) (.format "\"HH:mm")
+                      {} $ :color (hsl 0 0 90)
+                if (:copied? state) template-copied
+                :ui qrcode-plugin
+                :ui desc-plugin
+                :ui delete-plugin
+        |effect-code $ quote
+          defeffect effect-code (content) (action el)
+            when (= action :mount)
+              let
+                  target $ js/document.querySelector "\"canvas"
+                if (some? target)
+                  QRCode/toCanvas target content $ fn (e ? el2)
+                    if (some? e) (js/console.error e)
+                  js/console.error "\"missing canvas element"
+        |style-icon $ quote
+          def style-icon $ {}
+            :color $ hsl 200 20 60 0.5
+            :font-size 14
+            :cursor :pointer
+        |style-snippet $ quote
+          def style-snippet $ {}
+            :border $ str "\"1px solid " (hsl 0 0 90)
+            :padding "\"2px 8px"
+            :margin "\"8px 0"
+            :border-radius "\"8px"
+            :position :relative
+        |template-copied $ quote
+          def template-copied $ div
+            {} $ :style
+              merge ui/center $ {} (:position :absolute) (:top 10) (:left 10)
+                :background-color $ hsl 0 0 0 0.6
+                :color :white
+                :padding "\"0 8px"
+                :border-radius "\"2px"
+                :font-size 12
+                :font-family ui/font-fancy
+            <> "\"Copied"
+      :proc $ quote ()
+      :configs $ {}
     |app.updater.user $ {}
       :ns $ quote
         ns app.updater.user $ :require
@@ -134,6 +291,83 @@
           defn nickname (db op-data sid op-id op-time)
             assoc-in db ([] :sessions sid :nickname) op-data
       :proc $ quote ()
+    |app.comp.snippet-detail $ {}
+      :ns $ quote
+        ns app.comp.snippet-detail $ :require
+          respo.util.format :refer $ hsl
+          app.schema :as schema
+          respo-ui.core :as ui
+          respo.core :refer $ defcomp list-> <> >> span div button textarea a defeffect create-element
+          respo.comp.space :refer $ =<
+          app.config :as config
+          feather.core :refer $ comp-icon
+          respo-alerts.core :refer $ use-prompt use-modal use-confirm
+          "\"dayjs" :default dayjs
+          feather.core :refer $ comp-icon
+          "\"copy-text-to-clipboard" :default copy!
+          "\"qrcode" :as QRCode
+          app.comp.snippet :refer $ comp-snippet
+          [] app.comp.message-box :refer $ [] comp-message-box
+      :defs $ {}
+        |comp-snippet-detail $ quote
+          defcomp comp-snippet-detail (states snippet)
+            let
+                clear-plugin $ use-confirm (>> states :clear)
+                  {} $ :text "\"clear?"
+              div
+                {} $ :style
+                  merge ui/expand ui/column $ {} (:position :relative)
+                comp-snippet (>> states :preview) snippet
+                div
+                  {} $ :style
+                    merge ui/expand $ {}
+                  list-> ({})
+                    -> (:replies snippet) (to-pairs) (.to-list) (map last)
+                      sort $ fn (a b)
+                        - (:time a) (:time b)
+                      map $ fn (reply)
+                        [] (:id reply)
+                          div
+                            {} $ :style
+                              {}
+                                :border $ str "\"1px solid " (hsl 0 0 90)
+                                :margin "\"4px 0"
+                                :padding 8
+                                :border-radius "\"8px"
+                            div ({})
+                              <> $ :content reply
+                            div ({}) (<> "\"by") (=< 4 nil)
+                              <> $ :nickname reply
+                              =< 8 nil
+                              <>
+                                -> (:time snippet) (dayjs) (.format "\"HH:mm")
+                                {} $ :color (hsl 0 0 90)
+                  if (-> snippet :replies empty?)
+                    div
+                      {} $ :style ui/center
+                      <> "\"No replies" $ {}
+                        :color $ hsl 0 0 80
+                        :font-family ui/font-fancy
+                  div $ {}
+                    :style $ {} (:height "\"70%")
+                div
+                  {} $ :style ui/row-parted
+                  span $ {}
+                  a $ {} (:style ui/link) (:inner-text "\"Clear")
+                    :on-click $ fn (e d!)
+                        :show clear-plugin
+                        , d! $ fn ()
+                          d! :snippet/clear-replies $ :id snippet
+                comp-message-box (>> states :message)
+                  fn (content d!)
+                    d! :snippet/reply $ [] (:id snippet) content
+                  {} $ :placeholder "\"reply to this..."
+                :ui clear-plugin
+        |comp-reply $ quote
+          defcomp comp-reply (reply)
+            div ({}) (<> "\"This is a faked reply")
+      :proc $ quote ()
+      :configs $ {}
     |app.schema $ {}
       :ns $ quote (ns app.schema)
       :defs $ {}
@@ -152,7 +386,7 @@
             :messages $ {}
         |snippet $ quote
           def snippet $ {} (:id nil) (:time nil) (:nickname nil) (:content nil) (:desc "\"")
-            :replies $ do reply ([])
+            :replies $ do reply ({})
         |reply $ quote
           def reply $ {} (:id nil) (:nickname nil) (:time nil) (:content "\"")
       :proc $ quote ()
@@ -174,6 +408,9 @@
                   :session/nickname session/nickname
                   :snippet/create snippet/create-snippet
                   :snippet/remove snippet/remove-snippet
+                  :snippet/update snippet/update-snippet
+                  :snippet/reply snippet/add-reply
+                  :snippet/clear-replies snippet/clear-replies
                   :router/change router/change
               f db op-data sid op-id op-time
       :proc $ quote ()
@@ -197,7 +434,7 @@
                 true true
               , false
         |site $ quote
-          def site $ {} (:port 11025) (:title "\"Paste Sharing") (:icon "\"http://cdn.tiye.me/logo/cumulo.png") (:dev-ui "\"http://localhost:8100/main.css") (:release-ui "\"http://cdn.tiye.me/favored-fonts/main.css") (:cdn-url "\"http://cdn.tiye.me/paste-sharing/") (:theme "\"#eeeeff") (:storage-key "\"paste-sharing") (:storage-file "\"storage.edn")
+          def site $ {} (:port 11025) (:title "\"Paste Sharing") (:icon "\"http://cdn.tiye.me/logo/cumulo.png") (:dev-ui "\"http://localhost:8100/main.css") (:release-ui "\"http://cdn.tiye.me/favored-fonts/main.css") (:cdn-url "\"http://cdn.tiye.me/paste-sharing/") (:theme "\"#eeeeff") (:storage-key "\"paste-sharing") (:storage-file "\"storage.cirru")
       :proc $ quote ()
     |app.client $ {}
       :ns $ quote
@@ -300,6 +537,51 @@
                 =< 8 nil
                 <> count-members
       :proc $ quote ()
+    |app.comp.message-box $ {}
+      :ns $ quote
+        ns app.comp.message-box $ :require
+          respo.util.format :refer $ hsl
+          app.schema :as schema
+          respo-ui.core :as ui
+          respo.core :refer $ defcomp list-> <> >> span div button textarea a defeffect create-element
+          respo.comp.space :refer $ =<
+          app.config :as config
+          feather.core :refer $ comp-icon
+      :defs $ {}
+        |comp-message-box $ quote
+          defcomp comp-message-box (states on-submit options)
+            let
+                cursor $ :cursor states
+                state $ either (:data states)
+                  {} $ :text "\""
+                submit! $ fn (d!)
+                  when
+                    not $ blank? (:text state)
+                    on-submit (:text state) d!
+                    d! cursor $ assoc state :text "\""
+              div
+                {} $ :style ui/row
+                textarea $ {}
+                  :style $ merge ui/expand ui/textarea
+                  :placeholder $ :placeholder options
+                  :value $ :text state
+                  :on-input $ fn (e d!)
+                    d! cursor $ assoc state :text (:value e)
+                  :on-keydown $ fn (e d!)
+                    &let
+                      event $ :event e
+                      when
+                        and
+                          = "\"Enter" $ .-key event
+                          not $ or (.-shiftKey event) (.-ctrlKey event)
+                        .!preventDefault event
+                        submit! d!
+                =< 8 nil
+                div ({})
+                  button $ {} (:style ui/button) (:inner-text "\"Send")
+                    :on-click $ fn (e d!) (submit! d!)
+      :proc $ quote ()
+      :configs $ {}
     |app.comp.container $ {}
       :ns $ quote
         ns app.comp.container $ :require
@@ -318,6 +600,7 @@
           [] app.config :as config
           respo.util.format :refer $ hsl
           app.comp.home :refer $ comp-home
+          app.comp.snippet-detail :refer $ comp-snippet-detail
       :defs $ {}
         |comp-container $ quote
           defcomp comp-container (states store)
@@ -341,6 +624,7 @@
                       <> $ str "\"Unknown page: " router
                       :home $ comp-home (>> states :home) (:snippets store)
                       :profile $ comp-profile (>> states :profile) (:nickname session)
+                      :snippet $ comp-snippet-detail (>> states :detail) (:snippet router-data)
                   comp-status-color $ :color store
                   when dev? $ comp-inspect "\"Store" store
                     {} (:bottom 0) (:left 0) (:max-width "\"100%")
@@ -389,6 +673,8 @@
           feather.core :refer $ comp-icon
           "\"copy-text-to-clipboard" :default copy!
           "\"qrcode" :as QRCode
+          app.comp.snippet :refer $ [] comp-snippet
+          [] app.comp.message-box :refer $ [] comp-message-box
       :defs $ {}
         |comp-home $ quote
           defcomp comp-home (states snippets)
@@ -396,25 +682,17 @@
                 cursor $ :cursor states
                 state $ either (:data states)
                   {} $ :text "\""
+                submit! $ fn (d!)
+                  when
+                    not $ blank? (:text state)
+                    d! :snippet/create $ trim (:text state)
+                    d! cursor $ assoc state :text "\""
               div
                 {} $ :style
                   merge ui/column $ {} (:padding "\"8px 0") (:width "\"100%")
-                div
-                  {} $ :style ui/row
-                  textarea $ {}
-                    :style $ merge ui/expand ui/textarea
-                    :placeholder "\"Paste a link..."
-                    :value $ :text state
-                    :on-input $ fn (e d!)
-                      d! cursor $ assoc state :text (:value e)
-                  =< 8 nil
-                  div ({})
-                    button $ {} (:style ui/button) (:inner-text "\"Send")
-                      :on-click $ fn (e d!)
-                        when
-                          not $ blank? (:text state)
-                          d! :snippet/create $ trim (:text state)
-                          d! cursor $ assoc state :text "\""
+                comp-message-box (>> states :box)
+                  fn (content d!) (d! :snippet/create content)
+                  {} $ :placeholder "\"Paste a link... and press Enter"
                 =< nil 8
                 div
                   {} $ :style
@@ -436,104 +714,6 @@
                           :padding "\"16px 0"
                           :font-size 16
                           :font-style :italic
-        |comp-snippet $ quote
-          defcomp comp-snippet (states snippet)
-            let
-                cursor $ :cursor states
-                state $ either (:data states)
-                  {} $ :copied? false
-                qrcode-plugin $ use-modal (>> states :qrcode)
-                  {} (:title "\"QR Code")
-                    :render $ fn (on-close)
-                      comp-qrcode (:content snippet) on-close
-              div
-                {} $ :style
-                  {}
-                    :border $ str "\"1px solid " (hsl 0 0 90)
-                    :padding "\"2px 8px"
-                    :margin "\"8px 0"
-                    :border-radius "\"8px"
-                    :position :relative
-                div
-                  {} $ :style ui/row-parted
-                  let
-                      content $ either (:content snippet) "\"..."
-                    div
-                      {} $ :style ui/row-middle
-                      if
-                        and
-                          or (starts-with? content "\"http://") (starts-with? content "\"https://")
-                          not $ includes? (trim content) "\" "
-                        a $ {}
-                          :href $ trim content
-                          :inner-text content
-                          :target "\"_blank"
-                        <> content
-                      =< 16 nil
-                      comp-icon :copy
-                        merge style-icon $ {}
-                          :color $ hsl 200 20 60 0.5
-                        fn (e d!)
-                          copy! $ :content snippet
-                          d! cursor $ assoc state :copied? true
-                          js/setTimeout
-                            fn () $ d! cursor (assoc state :copied? false)
-                            , 2000
-                      =< 16 nil
-                      comp-icon :camera
-                        merge style-icon $ {}
-                          :color $ hsl 200 20 60 0.5
-                        fn (e d!)
-                            :show qrcode-plugin
-                            , d!
-                  comp-icon :x
-                    merge style-icon $ {}
-                      :color $ hsl 0 80 60
-                    fn (e d!)
-                      d! :snippet/remove $ :id snippet
-                div ({})
-                  <> $ str "\"@"
-                    either (:nickname snippet) "\"??"
-                  =< 8 nil
-                  <>
-                    -> (:time snippet) (dayjs) (.format "\"HH:mm")
-                    {} $ :color (hsl 0 0 90)
-                if (:copied? state) template-copied
-                :ui qrcode-plugin
-        |style-icon $ quote
-          def style-icon $ {}
-            :color $ hsl 200 20 60 0.5
-            :font-size 14
-            :cursor :pointer
-        |template-copied $ quote
-          def template-copied $ div
-            {} $ :style
-              merge ui/center $ {} (:position :absolute) (:top 10) (:left 10)
-                :background-color $ hsl 0 0 0 0.6
-                :color :white
-                :padding "\"0 8px"
-                :border-radius "\"2px"
-                :font-size 12
-                :font-family ui/font-fancy
-            <> "\"Copied"
-        |comp-qrcode $ quote
-          defcomp comp-qrcode (content on-close)
-            [] (effect-code content)
-              div
-                {} $ :style
-                  merge ui/center $ {} (:padding 40)
-                div ({})
-                  <> $ js/JSON.stringify content
-                create-element :canvas $ {}
-        |effect-code $ quote
-          defeffect effect-code (content) (action el)
-            when (= action :mount)
-              let
-                  target $ js/document.querySelector "\"canvas"
-                if (some? target)
-                  QRCode/toCanvas target content $ fn (e ? el2)
-                    if (some? e) (js/console.error e)
-                  js/console.error "\"missing canvas element"
       :proc $ quote ()
       :configs $ {}
     |app.updater.snippet $ {}
@@ -552,6 +732,31 @@
             let
                 session $ get-in db ([] :sessions sid)
               update db :snippets $ fn (s) (dissoc s op-data)
+        |update-snippet $ quote
+          defn update-snippet (db op-data sid op-id op-time)
+            let
+                session $ get-in db ([] :sessions sid)
+              let[] (s-id changes) op-data $ update-in db ([] :snippets s-id)
+                fn (snippet)
+                  merge snippet $ dissoc changes :id
+        |add-reply $ quote
+          defn add-reply (db op-data sid op-id op-time)
+            let
+                session $ get-in db ([] :sessions sid)
+              let[] (s-id content) op-data $ update-in db ([] :snippets s-id :replies)
+                fn (replies)
+                  if (some? replies)
+                    assoc replies op-id $ merge schema/reply
+                      {} (:id op-id) (:content content)
+                        :nickname $ :nickname session
+                        :time op-time
+        |clear-replies $ quote
+          defn clear-replies (db op-data sid op-id op-time)
+            update-in db ([] :snippets op-data)
+              fn (snippet)
+                if (some? snippet)
+                  assoc snippet :replies $ {}
+                  println "\"[error] found no snippet with id:" op-data
       :proc $ quote ()
       :configs $ {}
     |app.comp.profile $ {}
@@ -610,6 +815,11 @@
                 :router $ assoc router :data
                   case-default (:name router) ({})
                     :home $ :pages db
+                    :snippet $ let
+                        s-id $ -> router :id
+                        snippet $ if (some? s-id)
+                          get-in db $ [] :snippets s-id
+                      {} $ :snippet snippet
                     :profile $ {}
                 :count $ count (:sessions db)
                 :color $ color/randomColor
