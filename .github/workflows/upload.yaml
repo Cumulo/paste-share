@@ -37,6 +37,7 @@ jobs:
         && git clone https://github.com/mvc-works/ws-edn.calcit.git
         && git clone https://github.com/Respo/respo-feather.calcit.git
         && git clone https://github.com/Respo/alerts.calcit.git
+        && git clone https://github.com/Respo/respo-markdown.calcit.git
 
     - run: yarn && yarn compile-server && yarn compile-page && yarn release-page && yarn release-server
 
