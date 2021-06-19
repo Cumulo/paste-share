@@ -75,27 +75,22 @@
                       comp-icon :camera
                         merge style-icon $ {}
                           :color $ hsl 200 20 60 0.5
-                        fn (e d!)
-                            :show qrcode-plugin
-                            , d!
+                        fn (e d!) (.show qrcode-plugin d!)
                       =< 16 nil
                       div
                         {} (:style ui/row-middle)
                           :on-click $ fn (e d!)
                             d! :router/change $ {} (:name :snippet)
                               :id $ :id snippet
-                        comp-icon :message-square style-icon $ fn (e d!) (; "TODO event handling issue")
-                          d! :router/change $ {} (:name :snippet)
-                            :id $ :id snippet
+                        comp-icon :message-square style-icon nil
                         =< 4 0
                         <> $ .count (:replies snippet)
                   comp-icon :x
                     merge style-icon $ {}
                       :color $ hsl 0 80 60
                     fn (e d!)
-                        :show delete-plugin
-                        , d! $ fn ()
-                          d! :snippet/remove $ :id snippet
+                      .show delete-plugin d! $ fn ()
+                        d! :snippet/remove $ :id snippet
                 div
                   {} $ :style ui/row-parted
                   div
@@ -109,13 +104,12 @@
                     =< 8 nil
                     comp-icon :edit (merge style-icon)
                       fn (e d!)
-                          :show desc-plugin
-                          , d! $ fn (value)
-                            when
-                              and (some? value)
-                                not $ .blank? value
-                              d! :snippet/update $ [] (:id snippet)
-                                {} $ :desc value
+                        .show desc-plugin d! $ fn (value)
+                          when
+                            and (some? value)
+                              not $ .blank? value
+                            d! :snippet/update $ [] (:id snippet)
+                              {} $ :desc value
                   div ({})
                     <> $ str "\"by "
                       either (:nickname snippet) "\"??"
@@ -124,9 +118,9 @@
                       -> (:time snippet) (dayjs) (.format "\"HH:mm")
                       {} $ :color (hsl 0 0 90)
                 if (:copied? state) template-copied
-                :ui qrcode-plugin
-                :ui desc-plugin
-                :ui delete-plugin
+                .render qrcode-plugin
+                .render desc-plugin
+                .render delete-plugin
         |effect-code $ quote
           defeffect effect-code (content) (action el)
             when (= action :mount)
@@ -362,7 +356,7 @@
                   fn (content d!)
                     d! :snippet/reply $ [] (:id snippet) content
                   {} $ :placeholder "\"reply to this..."
-                :ui clear-plugin
+                .render clear-plugin
         |comp-reply $ quote
           defcomp comp-reply (reply)
             div ({}) (<> "\"This is a faked reply")
@@ -424,15 +418,7 @@
             (exists? js/process) (= "\"true" js/process.env.cdn)
             true false
         |dev? $ quote
-          def dev? $ let
-              debug? true
-            if debug?
-              cond
-                  exists? js/window
-                  , true
-                (exists? js/process) (not= "\"true" js/process.env.release)
-                true true
-              , false
+          def dev? $ = "\"dev" (get-env "\"mode")
         |site $ quote
           def site $ {} (:port 11025) (:title "\"Paste Sharing") (:icon "\"http://cdn.tiye.me/logo/cumulo.png") (:dev-ui "\"http://localhost:8100/main.css") (:release-ui "\"http://cdn.tiye.me/favored-fonts/main.css") (:cdn-url "\"http://cdn.tiye.me/paste-sharing/") (:theme "\"#eeeeff") (:storage-key "\"paste-sharing") (:storage-file "\"storage.cirru")
       :proc $ quote ()
@@ -850,7 +836,7 @@
               cond
                   = op :effect/persist
                   persist-db!
-                true $ reset! *reel (reel-reducer @*reel @*proxied-updater op op-data sid op-id op-time)
+                true $ reset! *reel (reel-reducer @*reel @*proxied-updater op op-data sid op-id op-time config/dev?)
         |main! $ quote
           defn main! ()
             println "\"Running mode:" $ if config/dev? "\"dev" "\"release"
@@ -909,7 +895,7 @@
               if found? (println "\"Found local EDN data") (println "\"Found no data")
         |persist-db! $ quote
           defn persist-db! () $ let
-              file-content $ write-cirru-edn
+              file-content $ format-cirru-edn
                 assoc (:db @*reel) :sessions $ {}
               storage-path storage-file
               backup-path $ get-backup-path!
