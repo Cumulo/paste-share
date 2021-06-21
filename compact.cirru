@@ -1,7 +1,7 @@
 
 {} (:package |app)
   :configs $ {} (:init-fn |app.server/main!) (:reload-fn |app.server/reload!)
-    :modules $ [] |respo.calcit/ |lilac/ |recollect/ |memof/ |respo-ui.calcit/ |ws-edn.calcit/ |cumulo-util.calcit/ |respo-message.calcit/ |cumulo-reel.calcit/ |respo-feather.calcit/ |alerts.calcit/
+    :modules $ [] |respo.calcit/ |lilac/ |recollect/ |memof/ |respo-ui.calcit/ |ws-edn.calcit/ |cumulo-util.calcit/ |respo-message.calcit/ |cumulo-reel.calcit/ |respo-feather.calcit/ |alerts.calcit/ |respo-markdown.calcit/
     :version nil
   :files $ {}
     |app.comp.snippet $ {}
@@ -19,6 +19,7 @@
           feather.core :refer $ comp-icon comp-i
           "\"copy-text-to-clipboard" :default copy!
           "\"qrcode" :as QRCode
+          respo-md.comp.md :refer $ comp-md-block
       :defs $ {}
         |comp-qrcode $ quote
           defcomp comp-qrcode (content on-close)
@@ -49,7 +50,7 @@
                 div
                   {} $ :style ui/row-parted
                   let
-                      content $ either (:content snippet) "\"..."
+                      content $ or (:content snippet) "\"..."
                     div
                       {} $ :style ui/row-middle
                       if
@@ -60,7 +61,7 @@
                           :href $ trim content
                           :inner-text content
                           :target "\"_blank"
-                        <> content
+                        <> content $ {}
                       =< 16 nil
                       comp-icon :copy
                         merge style-icon $ {}
@@ -71,31 +72,17 @@
                           js/setTimeout
                             fn () $ d! cursor (assoc state :copied? false)
                             , 2000
-                      =< 16 nil
+                      =< 8 nil
                       comp-icon :camera
                         merge style-icon $ {}
                           :color $ hsl 200 20 60 0.5
-                        fn (e d!)
-                            :show qrcode-plugin
-                            , d!
-                      =< 16 nil
-                      div
-                        {} (:style ui/row-middle)
-                          :on-click $ fn (e d!)
-                            d! :router/change $ {} (:name :snippet)
-                              :id $ :id snippet
-                        comp-icon :message-square style-icon $ fn (e d!) (; "TODO event handling issue")
-                          d! :router/change $ {} (:name :snippet)
-                            :id $ :id snippet
-                        =< 4 0
-                        <> $ .count (:replies snippet)
+                        fn (e d!) (.show qrcode-plugin d!)
                   comp-icon :x
                     merge style-icon $ {}
                       :color $ hsl 0 80 60
                     fn (e d!)
-                        :show delete-plugin
-                        , d! $ fn ()
-                          d! :snippet/remove $ :id snippet
+                      .show delete-plugin d! $ fn ()
+                        d! :snippet/remove $ :id snippet
                 div
                   {} $ :style ui/row-parted
                   div
@@ -109,24 +96,35 @@
                     =< 8 nil
                     comp-icon :edit (merge style-icon)
                       fn (e d!)
-                          :show desc-plugin
-                          , d! $ fn (value)
-                            when
-                              and (some? value)
-                                not $ .blank? value
-                              d! :snippet/update $ [] (:id snippet)
-                                {} $ :desc value
-                  div ({})
-                    <> $ str "\"by "
-                      either (:nickname snippet) "\"??"
-                    =< 8 nil
-                    <>
-                      -> (:time snippet) (dayjs) (.format "\"HH:mm")
-                      {} $ :color (hsl 0 0 90)
+                        .show desc-plugin d! $ fn (value)
+                          when
+                            and (some? value)
+                              not $ .blank? value
+                            d! :snippet/update $ [] (:id snippet)
+                              {} $ :desc value
+                div
+                  {} $ :style ui/row-middle
+                  <>
+                    -> (:time snippet) (dayjs) (.!format "\"HH:mm")
+                    {} $ :color (hsl 0 0 80)
+                  =< 16 nil
+                  <>
+                    str "\"@" $ or (:nickname snippet) "\"??"
+                    {} $ :color (hsl 0 0 80)
+                  =< 16 nil
+                  div
+                    {}
+                      :style $ {}
+                      :on-click $ fn (e d!)
+                        d! :router/change $ {} (:name :snippet)
+                          :id $ :id snippet
+                    comp-icon :message-square style-icon nil
+                    =< 4 0
+                    <> $ count (:replies snippet)
                 if (:copied? state) template-copied
-                :ui qrcode-plugin
-                :ui desc-plugin
-                :ui delete-plugin
+                .render qrcode-plugin
+                .render desc-plugin
+                .render delete-plugin
         |effect-code $ quote
           defeffect effect-code (content) (action el)
             when (= action :mount)
@@ -144,10 +142,11 @@
         |style-snippet $ quote
           def style-snippet $ {}
             :border $ str "\"1px solid " (hsl 0 0 90)
-            :padding "\"2px 8px"
+            :padding "\"8px 8px"
             :margin "\"8px 0"
-            :border-radius "\"8px"
+            :border-radius "\"4px"
             :position :relative
+            :background-color $ hsl 0 0 100
         |template-copied $ quote
           def template-copied $ div
             {} $ :style
@@ -326,22 +325,7 @@
                       sort $ fn (a b)
                         - (:time a) (:time b)
                       map $ fn (reply)
-                        [] (:id reply)
-                          div
-                            {} $ :style
-                              {}
-                                :border $ str "\"1px solid " (hsl 0 0 90)
-                                :margin "\"4px 0"
-                                :padding 8
-                                :border-radius "\"8px"
-                            div ({})
-                              <> $ :content reply
-                            div ({}) (<> "\"by") (=< 4 nil)
-                              <> $ :nickname reply
-                              =< 8 nil
-                              <>
-                                -> (:time snippet) (dayjs) (.format "\"HH:mm")
-                                {} $ :color (hsl 0 0 90)
+                        [] (:id reply) (comp-reply reply)
                   if (-> snippet :replies empty?)
                     div
                       {} $ :style ui/center
@@ -355,17 +339,33 @@
                   span $ {}
                   a $ {} (:style ui/link) (:inner-text "\"Clear")
                     :on-click $ fn (e d!)
-                        :show clear-plugin
-                        , d! $ fn ()
-                          d! :snippet/clear-replies $ :id snippet
+                      .show clear-plugin d! $ fn ()
+                        d! :snippet/clear-replies $ :id snippet
                 comp-message-box (>> states :message)
                   fn (content d!)
                     d! :snippet/reply $ [] (:id snippet) content
                   {} $ :placeholder "\"reply to this..."
-                :ui clear-plugin
+                .render clear-plugin
         |comp-reply $ quote
           defcomp comp-reply (reply)
-            div ({}) (<> "\"This is a faked reply")
+            div
+              {} $ :style
+                {}
+                  :border $ str "\"1px solid " (hsl 0 0 90)
+                  :margin "\"4px 0"
+                  :padding 8
+                  :border-radius "\"4px"
+                  :background-color $ hsl 0 0 100
+              div ({})
+                <> $ :content reply
+              div ({})
+                <>
+                  str "\"@" $ or (:nickname reply) "\"??"
+                  {} $ :color (hsl 0 0 80)
+                =< 16 nil
+                <>
+                  -> (:time reply) (dayjs) (.format "\"HH:mm")
+                  {} $ :color (hsl 0 0 80)
       :proc $ quote ()
       :configs $ {}
     |app.schema $ {}
@@ -424,15 +424,7 @@
             (exists? js/process) (= "\"true" js/process.env.cdn)
             true false
         |dev? $ quote
-          def dev? $ let
-              debug? true
-            if debug?
-              cond
-                  exists? js/window
-                  , true
-                (exists? js/process) (not= "\"true" js/process.env.release)
-                true true
-              , false
+          def dev? $ = "\"dev" (get-env "\"mode")
         |site $ quote
           def site $ {} (:port 11025) (:title "\"Paste Sharing") (:icon "\"http://cdn.tiye.me/logo/cumulo.png") (:dev-ui "\"http://localhost:8100/main.css") (:release-ui "\"http://cdn.tiye.me/favored-fonts/main.css") (:cdn-url "\"http://cdn.tiye.me/paste-sharing/") (:theme "\"#eeeeff") (:storage-key "\"paste-sharing") (:storage-file "\"storage.cirru")
       :proc $ quote ()
@@ -533,7 +525,7 @@
                   :style $ {} (:cursor "\"pointer")
                   :on-click $ fn (e d!)
                     d! :router/change $ {} (:name :profile)
-                <> nickname
+                <> nickname $ {} (:font-size 14)
                 =< 8 nil
                 <> count-members
       :proc $ quote ()
@@ -620,11 +612,19 @@
                   div
                     {} $ :style
                       merge ui/expand ui/row $ {} (:padding "\"0 80px")
+                        :background-color $ hsl 0 0 94
                     case-default (:name router)
                       <> $ str "\"Unknown page: " router
                       :home $ comp-home (>> states :home) (:snippets store)
                       :profile $ comp-profile (>> states :profile) (:nickname session)
-                      :snippet $ comp-snippet-detail (>> states :detail) (:snippet router-data)
+                      :snippet $ if
+                        some? $ :snippet router-data
+                        comp-snippet-detail (>> states :detail) (:snippet router-data)
+                        div
+                          {} $ :style
+                            merge ui/expand ui/center $ {} (:padding "\"8px") (:font-family ui/font-fancy) (:font-size 24)
+                              :color $ hsl 0 0 80
+                          <> "\"Missing data"
                   comp-status-color $ :color store
                   when dev? $ comp-inspect "\"Store" store
                     {} (:bottom 0) (:left 0) (:max-width "\"100%")
@@ -791,12 +791,11 @@
                       :color $ hsl 0 0 80
                       :cursor :pointer
                     fn (e d!)
-                        :show name-plugin
-                        , d! $ fn (text)
-                          when
-                            not $ blank? text
-                            d! :session/nickname text
-                :ui name-plugin
+                      .show name-plugin d! $ fn (text)
+                        when
+                          not $ blank? text
+                          d! :session/nickname text
+                .render name-plugin
       :proc $ quote ()
     |app.twig.container $ {}
       :ns $ quote
@@ -850,7 +849,7 @@
               cond
                   = op :effect/persist
                   persist-db!
-                true $ reset! *reel (reel-reducer @*reel @*proxied-updater op op-data sid op-id op-time)
+                true $ reset! *reel (reel-reducer @*reel @*proxied-updater op op-data sid op-id op-time config/dev?)
         |main! $ quote
           defn main! ()
             println "\"Running mode:" $ if config/dev? "\"dev" "\"release"
@@ -909,7 +908,7 @@
               if found? (println "\"Found local EDN data") (println "\"Found no data")
         |persist-db! $ quote
           defn persist-db! () $ let
-              file-content $ write-cirru-edn
+              file-content $ format-cirru-edn
                 assoc (:db @*reel) :sessions $ {}
               storage-path storage-file
               backup-path $ get-backup-path!
